@@ -41,7 +41,7 @@ def dataset_loader(args):
         args.mean = [0.491, 0.482, 0.446]
         args.std = [0.247, 0.243, 0.261]
     elif args.dataset == "gtsrb":
-        args.num_classes = 32
+        args.num_classes = 43
         args.img_size  = 32
         args.channel   = 3
         args.mean = None
@@ -76,10 +76,10 @@ def dataset_loader(args):
     dataset_test = dataset(args, False, transform_test)
     
 
-    trainloader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=8, shuffle=True, pin_memory=True)
-    testloader  = torch.utils.data.DataLoader(dataset_test,  batch_size=args.batch_size, num_workers=8, shuffle=False, pin_memory=True)
+    # trainloader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=8, shuffle=True, pin_memory=True)
+    # testloader  = torch.utils.data.DataLoader(dataset_test,  batch_size=args.batch_size, num_workers=8, shuffle=False, pin_memory=True)
 
-    return trainloader, testloader
+    return dataset_train, dataset_test
 
 
 def dataset(args, train, transform):
@@ -87,10 +87,10 @@ def dataset(args, train, transform):
             return torchvision.datasets.CIFAR10(root=args.data_root, transform=transform, download=True, train=train)
 
         if args.dataset == "gtsrb":
-            # return torchvision.datasets.ImageFolder(root=args.data_root+'gtsrb/GTSRB/train/Images' if train \
-                # else args.data_root+'gtsrb/GTSRB/val', transform=transform)
-            return torchvision.datasets.GTSRB(root=args.data_root+'gtsrb_torch', split='train' if train \
-             else 'test', transform=transform, download=True)
+            return torchvision.datasets.ImageFolder(root=args.data_root+'/GTSRB/Train' if train \
+                else args.data_root+'/GTSRB/val4imagefolder', transform=transform)
+            # return torchvision.datasets.GTSRB(root=args.data_root+'gtsrb_torch', split='train' if train \
+            #  else 'test', transform=transform, download=True)
 
         elif args.dataset == "imagenet200":
             return torchvision.datasets.ImageFolder(root=args.data_root+'/imagenet200/train' if train \

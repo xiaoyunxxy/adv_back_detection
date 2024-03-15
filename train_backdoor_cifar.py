@@ -10,21 +10,23 @@ import torchvision.transforms as transforms
 
 import models
 import data.poison_cifar as poison
+import data.poison_gtsrb as poison_gtsrb
+
 from loader import dataset_loader
 
 parser = argparse.ArgumentParser(description='Train poisoned networks')
 
 # Basic model parameters.
 parser.add_argument('--arch', type=str, default='resnet18',
-                    choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'MobileNetV2', 'vgg19_bn'])
+                    choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'MobileNetV2', 'vgg16'])
 parser.add_argument("--dataset", type=str, default="cifar10")
 parser.add_argument("--data-root", type=str, default="../data/")
 parser.add_argument("--num-classes", type=int, default=10)
 
 parser.add_argument('--widen-factor', type=int, default=1, help='widen_factor for WideResNet')
 parser.add_argument('--batch-size', type=int, default=128, help='the batch size for dataloader')
-parser.add_argument('--epoch', type=int, default=100, help='the numbe of epoch for training')
-parser.add_argument('--schedule', type=int, nargs='+', default=[50, 75],
+parser.add_argument('--epoch', type=int, default=60, help='the numbe of epoch for training')
+parser.add_argument('--schedule', type=int, nargs='+', default=[30, 45],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--save-every', type=int, default=20, help='save checkpoints every few epochs')
 parser.add_argument('--data-dir', type=str, default='../data', help='dir to the dataset')
@@ -83,10 +85,17 @@ def main():
                 'benign': None}
     trigger_type = triggers[args.poison_type]
     if args.poison_type in ['badnets', 'blend']:
-        poison_train, trigger_info = \
-            poison.add_trigger_cifar(data_set=clean_train, trigger_type=trigger_type, poison_rate=args.poison_rate,
-                                     poison_target=args.poison_target, trigger_alpha=args.trigger_alpha)
-        poison_test = poison.add_predefined_trigger_cifar(data_set=clean_test, trigger_info=trigger_info)
+        if args.dataset == 'gtsrb':
+            poison_train, trigger_info = poison_gtsrb.add_trigger_gtsrb(data_set=clean_train, 
+                trigger_type=trigger_type, poison_rate=args.poison_rate,poison_target=args.poison_target)
+            poison_test = poison_gtsrb.add_predefined_trigger_gtsrb(clean_test, trigger_info)
+        elif args.dataset == 'cifar10':
+            poison_train, trigger_info = \
+                poison.add_trigger_cifar(data_set=clean_train, trigger_type=trigger_type, poison_rate=args.poison_rate,
+                                         poison_target=args.poison_target, trigger_alpha=args.trigger_alpha)
+            poison_test = poison.add_predefined_trigger_cifar(data_set=clean_test, trigger_info=trigger_info)
+        else:
+            raise ValueError('Check dataset.')
     elif args.poison_type == 'clean-label':
         poison_train = poison.CIFAR10CLB(root=args.clb_dir, transform=transform_train)
         pattern, mask = poison.generate_trigger(trigger_type=triggers['clean-label'])
@@ -100,9 +109,9 @@ def main():
     else:
         raise ValueError('Please use valid backdoor attacks: [badnets | blend | clean-label]')
 
-    poison_train_loader = DataLoader(poison_train, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    poison_test_loader = DataLoader(poison_test, batch_size=args.batch_size, num_workers=0)
-    clean_test_loader = DataLoader(clean_test, batch_size=args.batch_size, num_workers=0)
+    poison_train_loader = DataLoader(poison_train, batch_size=args.batch_size, shuffle=True, num_workers=8)
+    poison_test_loader = DataLoader(poison_test, batch_size=args.batch_size, num_workers=8)
+    clean_test_loader = DataLoader(clean_test, batch_size=args.batch_size, num_workers=8)
 
     # Step 2: prepare model, criterion, optimizer, and learning rate scheduler.
     net = getattr(models, args.arch)(num_classes=args.num_classes).to(device)

@@ -48,6 +48,9 @@ args = parser.parse_args()
 # loading dataset, network
 trainloader, testloader = dataset_loader(args)
 net = network_loader(args).cuda()
+if len(args.gpu_id.split(','))!=1:
+    print(args.gpu_id)
+    net = torch.nn.DataParallel(net)
 
 # Adam Optimizer with KL divergence, and Scheduling Learning rate
 optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9)
