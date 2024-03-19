@@ -18,16 +18,16 @@ def network_loader(args):
     print('Batchnorm', args.batchnorm)
     if args.network == "resnet18":
         print('ResNet18 Network')
-        return resnet18(num_classes=args.num_classes, norm_layer=NoisyBatchNorm2d)
+        return resnet18(num_classes=args.num_classes)
     elif args.network == "resnet50":
         print('ResNet50 Network')
-        return resnet50(num_classes=args.num_classes, norm_layer=NoisyBatchNorm2d)
+        return resnet50(num_classes=args.num_classes)
     elif args.network == "vgg16":
         print('VGG16 Network')
-        return vgg16(num_classes=args.num_classes, norm_layer=NoisyBatchNorm2d)
+        return vgg16(num_classes=args.num_classes)
     elif args.network == "mobilenet":
         print('MobileNetV2 Network')
-        return MobileNetV2(num_classes=args.num_classes, norm_layer=NoisyBatchNorm2d)
+        return MobileNetV2(num_classes=args.num_classes)
 
 
 def dataset_loader(args):

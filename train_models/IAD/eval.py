@@ -4,11 +4,16 @@ import os
 import torch
 import torch.nn as nn
 import torchvision
-from classifier_models import PreActResNet18
+# from classifier_models import PreActResNet18
 from config import get_arguments
 from dataloader import get_dataloader
 from networks.models import Generator, NetC_MNIST
 from utils import progress_bar
+
+from models.vgg import vgg16
+from models.resnet import resnet18, resnet50
+from models.mobilenetv2 import MobileNetV2
+from models.anp_batchnorm import NoisyBatchNorm2d
 
 
 def create_targets_bd(targets, opt):
@@ -91,6 +96,21 @@ def eval(netC, netG, netM, test_dl1, test_dl2, opt):
             torchvision.utils.save_image(images, outpath, normalize=True, pad_value=1)
 
 
+def network_loader(args):
+    if args.network == "resnet18":
+        print('ResNet18 Network')
+        return resnet18(num_classes=args.num_classes)
+    elif args.network == "resnet50":
+        print('ResNet50 Network')
+        return resnet50(num_classes=args.num_classes)
+    elif args.network == "vgg16":
+        print('VGG16 Network')
+        return vgg16(num_classes=args.num_classes)
+    elif args.network == "mobilenet":
+        print('MobileNetV2 Network')
+        return MobileNetV2(num_classes=args.num_classes)
+
+
 def main():
     # Prepare arguments
     opt = get_arguments().parse_args()
@@ -98,8 +118,13 @@ def main():
         opt.num_classes = 10
     elif opt.dataset == "gtsrb":
         opt.num_classes = 43
+    elif opt.dataset == "celeba":
+        opt.num_classes = 8
+    elif opt.dataset == "imagenet200":
+        opt.num_classes = 200
     else:
         raise Exception("Invalid Dataset")
+
     if opt.dataset == "cifar10":
         opt.input_height = 32
         opt.input_width = 32
@@ -112,18 +137,24 @@ def main():
         opt.input_height = 28
         opt.input_width = 28
         opt.input_channel = 1
+    elif opt.dataset == "imagenet200":
+        opt.input_height = 224
+        opt.input_width = 224
+        opt.input_channel = 3
     else:
         raise Exception("Invalid Dataset")
 
-    # Load models and masks
-    if opt.dataset == "cifar10":
-        netC = PreActResNet18().to(opt.device)
-    elif opt.dataset == "gtsrb":
-        netC = PreActResNet18(num_classes=43).to(opt.device)
-    elif opt.dataset == "mnist":
-        netC = NetC_MNIST().to(opt.device)
-    else:
-        raise Exception("Invalid dataset")
+    # # Load models and masks
+    # if opt.dataset == "cifar10":
+    #     netC = PreActResNet18().to(opt.device)
+    # elif opt.dataset == "gtsrb":
+    #     netC = PreActResNet18(num_classes=43).to(opt.device)
+    # elif opt.dataset == "mnist":
+    #     netC = NetC_MNIST().to(opt.device)
+    # else:
+    #     raise Exception("Invalid dataset")
+
+    netC = network_loader(opt).to(opt.device)
 
     path_model = os.path.join(
         opt.checkpoints, opt.dataset, opt.attack_mode, "{}_{}_ckpt.pth.tar".format(opt.attack_mode, opt.dataset)

@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision
-from classifier_models import PreActResNet18, ResNet18
+# from classifier_models import PreActResNet18, ResNet18
 from networks.models import Denormalizer, NetC_MNIST, Normalizer
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
@@ -16,19 +16,37 @@ from torchvision.transforms import RandomErasing
 from utils.dataloader import PostTensorTransform, get_dataloader
 from utils.utils import progress_bar
 
+from models.vgg import vgg16
+from models.resnet import resnet18, resnet50
+from models.mobilenetv2 import MobileNetV2
+from models.anp_batchnorm import NoisyBatchNorm2d
+
+def network_loader(args):
+    if args.network == "resnet18":
+        print('ResNet18 Network')
+        return resnet18(num_classes=args.num_classes)
+    elif args.network == "resnet50":
+        print('ResNet50 Network')
+        return resnet50(num_classes=args.num_classes)
+    elif args.network == "vgg16":
+        print('VGG16 Network')
+        return vgg16(num_classes=args.num_classes)
+    elif args.network == "mobilenet":
+        print('MobileNetV2 Network')
+        return MobileNetV2(num_classes=args.num_classes)
 
 def get_model(opt):
     netC = None
     optimizerC = None
     schedulerC = None
 
-    if opt.dataset == "cifar10" or opt.dataset == "gtsrb":
-        netC = PreActResNet18(num_classes=opt.num_classes).to(opt.device)
-    if opt.dataset == "celeba":
-        netC = ResNet18().to(opt.device)
-    if opt.dataset == "mnist":
-        netC = NetC_MNIST().to(opt.device)
-
+    # if opt.dataset == "cifar10" or opt.dataset == "gtsrb":
+    #     netC = PreActResNet18(num_classes=opt.num_classes).to(opt.device)
+    # if opt.dataset == "celeba":
+    #     netC = ResNet18().to(opt.device)
+    # if opt.dataset == "mnist":
+    #     netC = NetC_MNIST().to(opt.device)
+    netC = network_loader(opt).to(opt.device)
     # Optimizer
     optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
 
@@ -112,6 +130,8 @@ def main():
         opt.num_classes = 43
     elif opt.dataset == "celeba":
         opt.num_classes = 8
+    elif opt.dataset == "imagenet200":
+        opt.num_classes = 200
     else:
         raise Exception("Invalid Dataset")
 
@@ -131,6 +151,10 @@ def main():
         opt.input_height = 64
         opt.input_width = 64
         opt.input_channel = 3
+    elif opt.dataset == "imagenet200":
+        opt.input_height = 224
+        opt.input_width = 224
+        opt.input_channel = 3
     else:
         raise Exception("Invalid Dataset")
 
@@ -145,7 +169,7 @@ def main():
     opt.ckpt_folder = os.path.join(opt.checkpoints, opt.dataset)
     opt.ckpt_path = os.path.join(opt.ckpt_folder, "{}_{}_morph.pth.tar".format(opt.dataset, mode))
     opt.log_dir = os.path.join(opt.ckpt_folder, "log_dir")
-
+    
     if os.path.exists(opt.ckpt_path):
         state_dict = torch.load(opt.ckpt_path)
         netC.load_state_dict(state_dict["netC"])
