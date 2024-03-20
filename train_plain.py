@@ -42,11 +42,16 @@ parser.add_argument('--batch_size', default=128, type=int, help='Batch size')
 parser.add_argument('--pretrained', default='false', type=str2bool, help='pretrained boolean')
 parser.add_argument('--batchnorm', default='true', type=str2bool, help='batchnorm boolean')
 parser.add_argument('--save_dir', default='./bd_exp/plain', type=str, help='save directory')
+parser.add_argument('--schedule', type=int, nargs='+', default=[30, 45],
+                    help='Decrease learning rate at these epochs.')
 args = parser.parse_args()
 
 
 # loading dataset, network
-trainloader, testloader = dataset_loader(args)
+dataset_train, dataset_test = dataset_loader(args)
+trainloader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=8, shuffle=True, pin_memory=True)
+testloader  = torch.utils.data.DataLoader(dataset_test,  batch_size=args.batch_size, num_workers=8, shuffle=False, pin_memory=True)
+
 net = network_loader(args).cuda()
 if len(args.gpu_id.split(','))!=1:
     print(args.gpu_id)
@@ -55,7 +60,8 @@ if len(args.gpu_id.split(','))!=1:
 # Adam Optimizer with KL divergence, and Scheduling Learning rate
 optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9)
 criterion = torch.nn.CrossEntropyLoss()
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.2)
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.2)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.schedule, gamma=0.1)
 criterion_kl = torch.nn.KLDivLoss(reduction='none')
 
 # Setting checkpoint date time
