@@ -19,7 +19,7 @@ from utils.utils import progress_bar
 from models.vgg import vgg16
 from models.resnet import resnet18, resnet50
 from models.mobilenetv2 import MobileNetV2
-from models.anp_batchnorm import NoisyBatchNorm2d
+
 
 def network_loader(args):
     if args.network == "resnet18":
