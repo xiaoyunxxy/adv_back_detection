@@ -12,7 +12,7 @@ import models
 import data.poison_cifar as poison_cifar
 import data.poison_gtsrb as poison_gtsrb
 
-from loader import dataset_loader
+from loader import dataset_loader, network_loader
 
 parser = argparse.ArgumentParser(description='Train poisoned networks')
 
@@ -77,6 +77,8 @@ def main():
         poison_test = poison_cifar.add_predefined_trigger_cifar(data_set=clean_test, trigger_info=trigger_info)
     elif args.dataset == 'gtsrb':
         poison_test = poison_gtsrb.add_predefined_trigger_gtsrb(clean_test, trigger_info)
+    elif args.dataset == 'imagenet200':
+        poison_test = clean_test
     else:
         raise ValueError('Wrong dataset.')
 
@@ -88,9 +90,13 @@ def main():
     sub_test_loader = DataLoader(sub_test, batch_size=args.batch_size, shuffle=False, sampler=random_sampler, num_workers=8)
     poison_test_loader = DataLoader(poison_test, batch_size=args.batch_size, num_workers=8)
     clean_test_loader = DataLoader(clean_test, batch_size=args.batch_size, num_workers=8)
-
-
-    state_dict = torch.load(args.checkpoint, map_location=device)
+    
+    if args.poison_type == 'wanet' or args.poison_type == 'iad':
+        state_dict = torch.load(args.checkpoint, map_location=device)['netC']
+    elif args.poison_type == 'benign' and args.dataset == 'imagenet200':
+        state_dict = torch.load(args.checkpoint, map_location=device)['model_state_dict']
+    else:
+        state_dict = torch.load(args.checkpoint, map_location=device)
     net = getattr(models, args.arch)(num_classes=args.num_classes, norm_layer=models.NoisyBatchNorm2d)
     load_state_dict(net, orig_state_dict=state_dict)
     net = net.to(device)

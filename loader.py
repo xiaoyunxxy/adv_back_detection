@@ -13,8 +13,6 @@ from models.mobilenetv2 import MobileNetV2
 
 
 def network_loader(args):
-    print('Pretrained', args.pretrained)
-    print('Batchnorm', args.batchnorm)
     if args.network == "resnet18":
         print('ResNet18 Network')
         return resnet18(num_classes=args.num_classes)
