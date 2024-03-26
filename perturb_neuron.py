@@ -112,6 +112,8 @@ def main():
     noise_params = [v for n, v in parameters if "neuron_noise" in n]
     noise_optimizer = torch.optim.SGD(noise_params, lr=args.eps / args.steps)
 
+    perturb_acc = []
+
     # Step 3: train backdoored models
     print('Iter \t lr \t Time \t TrainLoss \t TrainACC \t PoisonLoss \t PoisonACC \t CleanLoss \t CleanACC')
     nb_repeat = int(np.ceil(args.nb_iter / args.print_every))
@@ -127,10 +129,13 @@ def main():
         print('{} \t {:.3f} \t {:.1f} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(
             (i + 1) * args.print_every, lr, end - start, train_loss, train_acc, po_test_loss, po_test_acc,
             cl_test_loss, cl_test_acc))
+        perturb_acc.append(cl_test_acc)
 
-    perturb_acc = cl_test_acc
-    print('perturb_acc: ', perturb_acc, end='')
+    print(perturb_acc)
+    print('average perturb_acc: ', np.mean(perturb_acc), end='')
     print('    non_perturb_acc: ', non_perturb_acc)
+    print(np.mean(perturb_acc))
+    print(non_perturb_acc)
   
 
 def load_state_dict(net, orig_state_dict):
@@ -195,7 +200,7 @@ def perturbation_train(model, criterion, noise_opt, data_loader):
 
         # calculate the adversarial perturbation for neurons
         if args.eps > 0.0:
-            reset(model, rand_init=True)
+            reset(model, rand_init=False)
             for _ in range(args.steps):
                 noise_opt.zero_grad()
 
