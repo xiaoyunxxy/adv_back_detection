@@ -38,14 +38,14 @@ parser.add_argument('--poison-type', type=str, default='benign', choices=['badne
 parser.add_argument('--poison-target', type=int, default=0, help='target class of backdoor attack')
 parser.add_argument('--trigger-alpha', type=float, default=1.0, help='the transparency of the trigger pattern.')
 
-parser.add_argument('--anp-eps', type=float, default=0.4)
-parser.add_argument('--anp-steps', type=int, default=1)
-parser.add_argument('--anp-alpha', type=float, default=0.2)
+parser.add_argument('--eps', type=float, default=0.4)
+parser.add_argument('--steps', type=int, default=1)
+
 
 args = parser.parse_args()
 args_dict = vars(args)
 print(args_dict)
-os.makedirs(args.output_dir, exist_ok=True)
+# os.makedirs(args.output_dir, exist_ok=True)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -68,6 +68,7 @@ def main():
     orig_train, clean_test = dataset_loader(args)
 
     sub_test, _ = random_split(dataset=clean_test, lengths=[args.val_frac, 1-args.val_frac], generator=torch.Generator().manual_seed(0))
+    sub_train, _ = random_split(dataset=orig_train, lengths=[args.val_frac, 1-args.val_frac], generator=torch.Generator().manual_seed(0))
 
     print('number of samples in the sub_test: ', len(sub_test))
 
@@ -81,6 +82,9 @@ def main():
 
     random_sampler = RandomSampler(data_source=sub_test, replacement=True,
                                    num_samples=args.print_every * args.batch_size)
+    random_sampler_train = RandomSampler(data_source=sub_train, replacement=True,
+                                   num_samples=args.print_every * args.batch_size)
+    sub_train_loader = DataLoader(sub_train, batch_size=args.batch_size, shuffle=False, sampler=random_sampler_train, num_workers=8)
     sub_test_loader = DataLoader(sub_test, batch_size=args.batch_size, shuffle=False, sampler=random_sampler, num_workers=8)
     poison_test_loader = DataLoader(poison_test, batch_size=args.batch_size, num_workers=8)
     clean_test_loader = DataLoader(clean_test, batch_size=args.batch_size, num_workers=8)
@@ -96,56 +100,32 @@ def main():
     poi_test_loss, poi_test_acc = test(model=net, criterion=criterion, data_loader=poison_test_loader)
     print('Acc of the checkpoint, clean acc: {:.2f}, poison acc: {:.2f}'.format(cl_test_acc, poi_test_acc))
 
+    non_perturb_acc = cl_test_acc
 
     parameters = list(net.named_parameters())
-
-    for name, param in net.named_parameters():
-        if 'neuron_noise' in name:
-            param.requires_grad = True
-        else:
-            param.requires_grad = False
-
     noise_params = [v for n, v in parameters if "neuron_noise" in n]
-    noise_optimizer = torch.optim.SGD(noise_params, lr=args.anp_eps / args.anp_steps)
+    noise_optimizer = torch.optim.SGD(noise_params, lr=args.eps / args.steps)
 
+    # Step 3: train backdoored models
     print('Iter \t lr \t Time \t TrainLoss \t TrainACC \t PoisonLoss \t PoisonACC \t CleanLoss \t CleanACC')
     nb_repeat = int(np.ceil(args.nb_iter / args.print_every))
-
     for i in range(nb_repeat):
         start = time.time()
         lr = noise_optimizer.param_groups[0]['lr']
-        train_loss, train_acc = perturbation_train(model=net, criterion=criterion, data_loader=sub_test_loader, noise_opt=noise_optimizer)
-
+        perturbation_train(model=net, criterion=criterion, data_loader=sub_test_loader, noise_opt=noise_optimizer)
         cl_test_loss, cl_test_acc = test(model=net, criterion=criterion, data_loader=clean_test_loader)
         po_test_loss, po_test_acc = test(model=net, criterion=criterion, data_loader=poison_test_loader)
         end = time.time()
+        train_loss = 0.0
+        train_acc = 0.0
         print('{} \t {:.3f} \t {:.1f} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(
             (i + 1) * args.print_every, lr, end - start, train_loss, train_acc, po_test_loss, po_test_acc,
             cl_test_loss, cl_test_acc))
 
-    print('-----------------------')
-    exclude_noise(net)
-    cl_test_loss, cl_test_acc = test(model=net, criterion=criterion, data_loader=clean_test_loader)
-    print('-- not ', cl_test_acc)
-    include_noise(net)
-    cl_test_loss, cl_test_acc = test(model=net, criterion=criterion, data_loader=clean_test_loader)
-    print('-- in ', cl_test_acc)
-    print('----')
-    w1 = net.state_dict()
-    net1 = getattr(models, args.arch)(num_classes=args.num_classes)
-    load_state_dict(net1, orig_state_dict=state_dict)
-    net1 = net1.to(device)
-    cl_test_loss, cl_test_acc = test(model=net1, criterion=criterion, data_loader=clean_test_loader)
-    print('-- test ', cl_test_acc)
-
-    parameters = list(net.named_parameters())
-    parameters1 = list(net1.named_parameters())
-
-    for i in range(len(parameters1)):
-        # if not parameters[i][1].equal(parameters1[i][1]):
-        print(parameters[i][0])
-
-
+    perturb_acc = cl_test_acc
+    print('perturb_acc: ', perturb_acc, end='')
+    print('    non_perturb_acc: ', non_perturb_acc)
+  
 
 def load_state_dict(net, orig_state_dict):
     if 'state_dict' in orig_state_dict.keys():
@@ -165,6 +145,12 @@ def load_state_dict(net, orig_state_dict):
 
 
 
+def clip_noise(model, lower=-args.eps, upper=args.eps):
+    params = [param for name, param in model.named_parameters() if 'neuron_noise' in name]
+    with torch.no_grad():
+        for param in params:
+            param.clamp_(lower, upper)
+
 
 def sign_grad(model):
     noise = [param for name, param in model.named_parameters() if 'neuron_noise' in name]
@@ -174,41 +160,37 @@ def sign_grad(model):
 
 def perturb(model, is_perturbed=True):
     for name, module in model.named_modules():
-        if isinstance(module, models.NoisyBatchNorm2d) or isinstance(module, models.NoisyBatchNorm1d):
+        if isinstance(module, models.NoisyBatchNorm2d):
             module.perturb(is_perturbed=is_perturbed)
 
 
 def include_noise(model):
     for name, module in model.named_modules():
-        if isinstance(module, models.NoisyBatchNorm2d) or isinstance(module, models.NoisyBatchNorm1d):
+        if isinstance(module, models.NoisyBatchNorm2d):
             module.include_noise()
 
 
 def exclude_noise(model):
     for name, module in model.named_modules():
-        if isinstance(module, models.NoisyBatchNorm2d) or isinstance(module, models.NoisyBatchNorm1d):
+        if isinstance(module, models.NoisyBatchNorm2d):
             module.exclude_noise()
 
 
 def reset(model, rand_init):
     for name, module in model.named_modules():
-        if isinstance(module, models.NoisyBatchNorm2d) or isinstance(module, models.NoisyBatchNorm1d):
-            module.reset(rand_init=rand_init, eps=args.anp_eps)
+        if isinstance(module, models.NoisyBatchNorm2d):
+            module.reset(rand_init=rand_init, eps=args.eps)
 
 
 def perturbation_train(model, criterion, noise_opt, data_loader):
     model.train()
-    total_correct = 0
-    total_loss = 0.0
-    nb_samples = 0
     for i, (images, labels) in enumerate(data_loader):
         images, labels = images.to(device), labels.to(device)
-        nb_samples += images.size(0)
 
         # calculate the adversarial perturbation for neurons
-        if args.anp_eps > 0.0:
+        if args.eps > 0.0:
             reset(model, rand_init=True)
-            for _ in range(args.anp_steps):
+            for _ in range(args.steps):
                 noise_opt.zero_grad()
 
                 include_noise(model)
@@ -218,8 +200,8 @@ def perturbation_train(model, criterion, noise_opt, data_loader):
                 loss_noise.backward()
                 sign_grad(model)
                 noise_opt.step()
+                # clip_noise(model)
 
-    return 0.0, 0.0
 
 
 def test(model, criterion, data_loader):

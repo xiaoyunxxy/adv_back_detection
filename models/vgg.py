@@ -14,7 +14,7 @@ cfg = {
 class VGG(nn.Module):
     def __init__(self, vgg_name, num_classes=10, norm_layer=nn.BatchNorm2d):
         super(VGG, self).__init__()
-        self.features = self._make_layers(cfg[vgg_name])
+        self.features = self._make_layers(cfg[vgg_name], norm_layer=norm_layer)
         self.classifier = nn.Linear(512, num_classes)
         self.avgpool = torch.nn.AdaptiveAvgPool2d((1,1))
 
