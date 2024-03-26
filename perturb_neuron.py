@@ -200,7 +200,7 @@ def perturbation_train(model, criterion, noise_opt, data_loader):
 
         # calculate the adversarial perturbation for neurons
         if args.eps > 0.0:
-            reset(model, rand_init=False)
+            reset(model, rand_init=True)
             for _ in range(args.steps):
                 noise_opt.zero_grad()
 

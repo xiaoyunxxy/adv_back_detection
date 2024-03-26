@@ -25,8 +25,8 @@ parser.add_argument("--num-classes", type=int, default=10)
 
 parser.add_argument('--widen-factor', type=int, default=1, help='widen_factor for WideResNet')
 parser.add_argument('--batch-size', type=int, default=128, help='the batch size for dataloader')
-parser.add_argument('--epoch', type=int, default=60, help='the numbe of epoch for training')
-parser.add_argument('--schedule', type=int, nargs='+', default=[30, 45],
+parser.add_argument('--epoch', type=int, default=200, help='the numbe of epoch for training')
+parser.add_argument('--schedule', type=int, nargs='+', default=[100, 150],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--save-every', type=int, default=20, help='save checkpoints every few epochs')
 parser.add_argument('--data-dir', type=str, default='../data', help='dir to the dataset')
