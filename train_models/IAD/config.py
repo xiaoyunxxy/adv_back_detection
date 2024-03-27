@@ -18,9 +18,9 @@ def get_arguments():
 
 
     parser.add_argument("--batchsize", type=int, default=128)
-    parser.add_argument("--lr_G", type=float, default=1e-2)
-    parser.add_argument("--lr_C", type=float, default=1e-2)
-    parser.add_argument("--lr_M", type=float, default=1e-2)
+    parser.add_argument("--lr_G", type=float, default=1e-1)
+    parser.add_argument("--lr_C", type=float, default=1e-1)
+    parser.add_argument("--lr_M", type=float, default=1e-1)
     parser.add_argument("--schedulerG_milestones", type=list, default=[75, 100, 125, 150])
     parser.add_argument("--schedulerC_milestones", type=list, default=[100, 150])
     parser.add_argument("--schedulerM_milestones", type=list, default=[10, 20])

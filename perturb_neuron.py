@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Train poisoned networks')
 # Basic model parameters.
 parser.add_argument('--arch', type=str, default='resnet18',
                     choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'MobileNetV2', 'vgg16'])
-parser.add_argument('--checkpoint', type=str, required=True, help='The checkpoint to be pruned')
+parser.add_argument('--checkpoint', type=str, required=True, help='The checkpoint to be perturbed.')
 parser.add_argument("--dataset", type=str, default="cifar10")
 parser.add_argument("--data-root", type=str, default="../data/")
 parser.add_argument("--num-classes", type=int, default=10)
@@ -33,7 +33,7 @@ parser.add_argument('--val-frac', type=float, default=0.01, help='The fraction o
 parser.add_argument('--output-dir', type=str, default='logs/models/')
 
 parser.add_argument('--trigger-info', type=str, default='', help='The information of backdoor trigger')
-parser.add_argument('--poison-type', type=str, default='benign', choices=['badnets', 'blend', 'clean-label', 'benign'],
+parser.add_argument('--poison-type', type=str, default='benign',
                     help='type of backdoor attacks for evaluation')
 parser.add_argument('--poison-target', type=int, default=0, help='target class of backdoor attack')
 parser.add_argument('--trigger-alpha', type=float, default=1.0, help='the transparency of the trigger pattern.')
